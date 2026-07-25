@@ -23,9 +23,11 @@ computed in the frontend, never stored.
 
 **Frozen order history.** An order must stay exactly as it was at purchase
 time, even if products or prices change later. So `order_item.unit_price`,
-`orders.total_amount`, and `orders.deposit_amount` are stored snapshots, not
-looked up live. This is the one deliberate exception to "don't store what you
-can compute" — because an order reflects a *past moment*, not current state.
+`orders.total_amount`, `orders.deposit_amount`, and `orders.shipping_fee` are
+stored snapshots, not looked up live. This is the one deliberate exception to
+"don't store what you can compute" — because an order reflects a *past moment*,
+not current state. Note: `total_amount` includes shipping (products +
+shipping_fee); the deposit is computed from that final total.
 
 **Soft delete.** Products are never physically deleted while linked to orders.
 Setting `is_active = false` hides a product from the site while keeping it
@@ -115,6 +117,7 @@ Named `orders` (plural) because `order` is a reserved SQL keyword.
 | status          | VARCHAR(30)   | NOT NULL, CHECK      | See status values below     |
 | total_amount    | DECIMAL(10,2) | NOT NULL, CHECK > 0  | Frozen at order time        |
 | deposit_amount  | DECIMAL(10,2) | NOT NULL, CHECK >= 0 | Actual deposit value        |
+| shipping_fee    | DECIMAL(10,2) | NOT NULL, CHECK >= 0 | Frozen shipping (0 = free)  |
 | deposit_paid_at | TIMESTAMP     | nullable             | When customer says paid     |
 | confirmed_at    | TIMESTAMP     | nullable             | When admin confirms         |
 | created_at      | TIMESTAMP     | NOT NULL, default now |                            |
