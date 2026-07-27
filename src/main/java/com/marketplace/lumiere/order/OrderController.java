@@ -22,4 +22,10 @@ public class OrderController {
         OrderResponse response = orderService.createOrder(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
+
+    // Fetch an order by its number — used by the order success page.
+    @GetMapping("/{orderNumber}")
+    public OrderResponse getByNumber(@PathVariable String orderNumber) {
+        return orderService.getByOrderNumber(orderNumber);
+    }
 }

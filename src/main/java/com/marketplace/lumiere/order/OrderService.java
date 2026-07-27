@@ -85,6 +85,13 @@ public class OrderService {
         return OrderResponse.from(saved);
     }
 
+    @Transactional(readOnly = true)
+    public OrderResponse getByOrderNumber(String orderNumber) {
+        Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderNumber));
+        return OrderResponse.from(order);
+    }
+
     // Generate a number like LUM-202600001 (year + zero-padded sequence).
     private String generateOrderNumber() {
         long next = orderRepository.count() + 1;
