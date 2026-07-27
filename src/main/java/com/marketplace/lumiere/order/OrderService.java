@@ -2,6 +2,7 @@ package com.marketplace.lumiere.order;
 
 import com.marketplace.lumiere.order.dto.CreateOrderRequest;
 import com.marketplace.lumiere.order.dto.OrderResponse;
+import com.marketplace.lumiere.order.dto.AdminOrderDto;
 import com.marketplace.lumiere.product.Product;
 import com.marketplace.lumiere.product.ProductRepository;
 import org.springframework.stereotype.Service;
@@ -10,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Year;
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class OrderService {
@@ -90,6 +93,36 @@ public class OrderService {
         Order order = orderRepository.findByOrderNumber(orderNumber)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderNumber));
         return OrderResponse.from(order);
+    }
+
+    // ===== Admin =====
+
+    @Transactional(readOnly = true)
+    public List<AdminOrderDto> getAllOrders() {
+        return orderRepository.findAllByOrderByCreatedAtDesc()
+                .stream()
+                .map(AdminOrderDto::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public AdminOrderDto getOrderDetails(Long id) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
+        return AdminOrderDto.from(order);
+    }
+
+    @Transactional
+    public AdminOrderDto updateStatus(Long id, OrderStatus newStatus) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
+
+        // When an order is confirmed, record the time (schema: confirmed_at).
+        if (newStatus == OrderStatus.CONFIRMED && order.getConfirmedAt() == null) {
+            order.setConfirmedAt(LocalDateTime.now());
+        }
+        order.setStatus(newStatus);
+        return AdminOrderDto.from(order);
     }
 
     // Generate a number like LUM-202600001 (year + zero-padded sequence).
