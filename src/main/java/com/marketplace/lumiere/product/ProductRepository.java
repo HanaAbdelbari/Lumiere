@@ -8,6 +8,9 @@ import java.util.Optional;
 
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
+    // Admin: all products (including hidden/inactive), newest first.
+    List<Product> findAllByOrderByCreatedAtDesc();
+
     // Product details page: look up by slug. Only active products are shown.
     Optional<Product> findBySlugAndIsActiveTrue(String slug);
 
