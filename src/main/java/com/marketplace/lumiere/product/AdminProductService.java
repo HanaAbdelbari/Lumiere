@@ -59,6 +59,13 @@ public class AdminProductService {
         product.setIsActive(false);
     }
 
+    // Restore a hidden product — show it in the store again.
+    public void restoreProduct(Long id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException("Product not found: " + id));
+        product.setIsActive(true);
+    }
+
     // Copy fields from the request onto the product (used by create & update).
     private void applyRequest(Product product, ProductRequest request) {
         Category category = categoryRepository.findById(request.categoryId())

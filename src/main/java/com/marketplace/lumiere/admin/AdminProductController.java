@@ -52,4 +52,11 @@ public class AdminProductController {
         adminProductService.deleteProduct(id);
         return ResponseEntity.noContent().build();
     }
+
+    // Restore (unhide) a product.
+    @PatchMapping("/{id}/restore")
+    public ResponseEntity<Void> restore(@PathVariable Long id) {
+        adminProductService.restoreProduct(id);
+        return ResponseEntity.noContent().build();
+    }
 }
