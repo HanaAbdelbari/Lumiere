@@ -4,6 +4,7 @@ import com.marketplace.lumiere.security.JwtService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -13,20 +14,25 @@ import java.util.Map;
 public class AdminAuthController {
 
     private final JwtService jwtService;
-    private final String adminPassword;
+    private final PasswordEncoder passwordEncoder;
+    // Now stores a BCrypt HASH of the password, not the plain text.
+    private final String adminPasswordHash;
 
     public AdminAuthController(
             JwtService jwtService,
-            @Value("${lumiere.admin.password}") String adminPassword) {
+            PasswordEncoder passwordEncoder,
+            @Value("${lumiere.admin.password-hash}") String adminPasswordHash) {
         this.jwtService = jwtService;
-        this.adminPassword = adminPassword;
+        this.passwordEncoder = passwordEncoder;
+        this.adminPasswordHash = adminPasswordHash;
     }
 
     // POST /api/admin/login  { "password": "..." }
-    // Returns a JWT if the password is correct.
+    // Compares the entered password against the stored BCrypt hash.
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
-        if (request.password() == null || !request.password().equals(adminPassword)) {
+        if (request.password() == null
+                || !passwordEncoder.matches(request.password(), adminPasswordHash)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("message", "Incorrect password"));
         }
