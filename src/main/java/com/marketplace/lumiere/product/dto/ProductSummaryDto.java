@@ -18,6 +18,7 @@ public record ProductSummaryDto(
         boolean onSale,
         Integer discountPercent,
         boolean inStock,
+        Integer stockQuantity,
         String mainImageUrl
 ) {
     public static ProductSummaryDto from(Product p) {
@@ -34,6 +35,7 @@ public record ProductSummaryDto(
                 p.isOnSale(),
                 discountPercent(p),
                 p.getStockQuantity() > 0,
+                p.getStockQuantity(),
                 mainImage
         );
     }
