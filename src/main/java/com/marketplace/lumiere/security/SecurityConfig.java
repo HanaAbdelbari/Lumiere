@@ -1,5 +1,6 @@
 package com.marketplace.lumiere.security;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -20,8 +21,15 @@ public class SecurityConfig {
 
     private final JwtService jwtService;
 
-    public SecurityConfig(JwtService jwtService) {
+    // The allowed frontend origin, read from the FRONTEND_ORIGIN env var.
+    // Local dev falls back to http://localhost:3000.
+    private final String allowedOrigin;
+
+    public SecurityConfig(
+            JwtService jwtService,
+            @Value("${lumiere.cors.allowed-origin}") String allowedOrigin) {
         this.jwtService = jwtService;
+        this.allowedOrigin = allowedOrigin;
     }
 
     // BCrypt encoder — used to hash and check the admin password.
@@ -55,11 +63,12 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // CORS so the frontend (localhost:3000) can call the API, including the
-    // Authorization header for admin requests.
+    // CORS so the frontend can call the API, including the Authorization
+    // header for admin requests. The allowed origin comes from config
+    // (localhost in dev, your Vercel URL in production).
     private CorsConfigurationSource corsSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:3000"));
+        config.setAllowedOrigins(List.of(allowedOrigin));
         config.setAllowedMethods(List.of("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
