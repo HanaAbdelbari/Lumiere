@@ -117,12 +117,41 @@ public class OrderService {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
 
-        // When an order is confirmed, record the time (schema: confirmed_at).
-        if (newStatus == OrderStatus.CONFIRMED && order.getConfirmedAt() == null) {
-            order.setConfirmedAt(LocalDateTime.now());
+        OrderStatus previousStatus = order.getStatus();
+
+        // 1. الخصم من الـ Stock عند التحويل لـ CONFIRMED لأول مرة
+        if (newStatus == OrderStatus.CONFIRMED && previousStatus != OrderStatus.CONFIRMED) {
+            for (OrderItem item : order.getItems()) {
+                Product product = item.getProduct();
+                int newQuantity = product.getStockQuantity() - item.getQuantity();
+
+                if (newQuantity < 0) {
+                    throw new IllegalArgumentException("Insufficient stock for product: " + product.getName());
+                }
+
+                product.setStockQuantity(newQuantity);
+                productRepository.save(product);
+            }
+
+            if (order.getConfirmedAt() == null) {
+                order.setConfirmedAt(LocalDateTime.now());
+            }
         }
+
+        // 2. إرجاع الـ Stock لو الأوردر اتكنسل وكان متأكد قبل كدة
+        if ((newStatus == OrderStatus.CANCELLED || newStatus == OrderStatus.DEPOSIT_REJECTED) &&
+                (previousStatus == OrderStatus.CONFIRMED || previousStatus == OrderStatus.PREPARING || previousStatus == OrderStatus.SHIPPED)) {
+
+            for (OrderItem item : order.getItems()) {
+                Product product = item.getProduct();
+                product.setStockQuantity(product.getStockQuantity() + item.getQuantity());
+                productRepository.save(product);
+            }
+        }
+
         order.setStatus(newStatus);
-        return AdminOrderDto.from(order);
+        Order updatedOrder = orderRepository.save(order);
+        return AdminOrderDto.from(updatedOrder);
     }
 
     // Generate a number like LUM-202600001 (year + zero-padded sequence).
