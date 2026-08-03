@@ -119,18 +119,20 @@ public class OrderService {
 
         OrderStatus previousStatus = order.getStatus();
 
-        // 1. الخصم من الـ Stock عند التحويل لـ CONFIRMED لأول مرة
+        // 1. الخصم وتحديث الـ Stock فوراً في الداتابيز عند التحويل لـ CONFIRMED لأول مرة
         if (newStatus == OrderStatus.CONFIRMED && previousStatus != OrderStatus.CONFIRMED) {
             for (OrderItem item : order.getItems()) {
                 Product product = item.getProduct();
-                int newQuantity = product.getStockQuantity() - item.getQuantity();
+                int currentStock = product.getStockQuantity();
+                int requestedQuantity = item.getQuantity();
 
-                if (newQuantity < 0) {
+                if (currentStock < requestedQuantity) {
                     throw new IllegalArgumentException("Insufficient stock for product: " + product.getName());
                 }
 
-                product.setStockQuantity(newQuantity);
-                productRepository.save(product);
+                // تحديث الكمية وتأكيد الحفظ فوراً (Flush)
+                product.setStockQuantity(currentStock - requestedQuantity);
+                productRepository.saveAndFlush(product);
             }
 
             if (order.getConfirmedAt() == null) {
@@ -138,19 +140,19 @@ public class OrderService {
             }
         }
 
-        // 2. إرجاع الـ Stock لو الأوردر اتكنسل وكان متأكد قبل كدة
+        // 2. إرجاع الـ Stock فوراً لو الأوردر اتكنسل وكان متأكد قبل كده
         if ((newStatus == OrderStatus.CANCELLED || newStatus == OrderStatus.DEPOSIT_REJECTED) &&
                 (previousStatus == OrderStatus.CONFIRMED || previousStatus == OrderStatus.PREPARING || previousStatus == OrderStatus.SHIPPED)) {
 
             for (OrderItem item : order.getItems()) {
                 Product product = item.getProduct();
                 product.setStockQuantity(product.getStockQuantity() + item.getQuantity());
-                productRepository.save(product);
+                productRepository.saveAndFlush(product);
             }
         }
 
         order.setStatus(newStatus);
-        Order updatedOrder = orderRepository.save(order);
+        Order updatedOrder = orderRepository.saveAndFlush(order);
         return AdminOrderDto.from(updatedOrder);
     }
 
