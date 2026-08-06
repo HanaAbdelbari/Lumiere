@@ -26,6 +26,8 @@ public record ProductSummaryDto(
                 ? null
                 : p.getImages().get(0).getImageUrl(); // images are ordered by display_order, so [0] is main
 
+        int stock = p.getStockQuantity() != null ? p.getStockQuantity() : 0;
+
         return new ProductSummaryDto(
                 p.getId(),
                 p.getName(),
@@ -34,15 +36,15 @@ public record ProductSummaryDto(
                 p.getSalePrice(),
                 p.isOnSale(),
                 discountPercent(p),
-                p.getStockQuantity() > 0,
-                p.getStockQuantity(),
+                stock > 0,
+                stock,
                 mainImage
         );
     }
 
     // Computed, never stored — same rule as the schema.
     private static Integer discountPercent(Product p) {
-        if (!p.isOnSale()) {
+        if (!p.isOnSale() || p.getSalePrice() == null) {
             return null;
         }
         BigDecimal off = p.getPrice().subtract(p.getSalePrice());
