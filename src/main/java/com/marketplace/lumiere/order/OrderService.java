@@ -119,35 +119,31 @@ public class OrderService {
 
         OrderStatus previousStatus = order.getStatus();
 
+        System.out.println(">>> Updating Order #" + id + " from " + previousStatus + " to " + newStatus);
+
         // 1. الخصم وتحديث الـ Stock فوراً في الداتابيز عند التحويل لـ CONFIRMED لأول مرة
         if (newStatus == OrderStatus.CONFIRMED && previousStatus != OrderStatus.CONFIRMED) {
+            System.out.println(">>> Entering Stock Deduction Logic...");
+
             for (OrderItem item : order.getItems()) {
                 Product product = item.getProduct();
                 int currentStock = product.getStockQuantity();
                 int requestedQuantity = item.getQuantity();
 
+                System.out.println(">>> Product: " + product.getName() + " | Current Stock: " + currentStock + " | Deducting: " + requestedQuantity);
+
                 if (currentStock < requestedQuantity) {
                     throw new IllegalArgumentException("Insufficient stock for product: " + product.getName());
                 }
 
-                // تحديث الكمية وتأكيد الحفظ فوراً (Flush)
                 product.setStockQuantity(currentStock - requestedQuantity);
                 productRepository.saveAndFlush(product);
+
+                System.out.println(">>> New Stock Saved: " + product.getStockQuantity());
             }
 
             if (order.getConfirmedAt() == null) {
                 order.setConfirmedAt(LocalDateTime.now());
-            }
-        }
-
-        // 2. إرجاع الـ Stock فوراً لو الأوردر اتكنسل وكان متأكد قبل كده
-        if ((newStatus == OrderStatus.CANCELLED || newStatus == OrderStatus.DEPOSIT_REJECTED) &&
-                (previousStatus == OrderStatus.CONFIRMED || previousStatus == OrderStatus.PREPARING || previousStatus == OrderStatus.SHIPPED)) {
-
-            for (OrderItem item : order.getItems()) {
-                Product product = item.getProduct();
-                product.setStockQuantity(product.getStockQuantity() + item.getQuantity());
-                productRepository.saveAndFlush(product);
             }
         }
 
