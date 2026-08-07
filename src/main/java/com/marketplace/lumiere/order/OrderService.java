@@ -36,11 +36,10 @@ public class OrderService {
         }
 
         Order order = new Order();
-        order.setStatus(OrderStatus.PENDING_DEPOSIT); // created before payment
+        order.setStatus(OrderStatus.PENDING_DEPOSIT);
 
         BigDecimal productsTotal = BigDecimal.ZERO;
 
-        // Build each line item. Prices come from the DB, not the request.
         for (CreateOrderRequest.OrderItemRequest line : request.items()) {
             Product product = productRepository.findById(line.productId())
                     .orElseThrow(() ->
@@ -50,7 +49,6 @@ public class OrderService {
                 throw new IllegalArgumentException("Invalid quantity for product " + line.productId());
             }
 
-            // Effective price = sale price if on sale, else normal price.
             BigDecimal unitPrice = product.getEffectivePrice();
 
             OrderItem item = new OrderItem(product, line.quantity(), unitPrice);
@@ -61,20 +59,19 @@ public class OrderService {
             );
         }
 
-        // Shipping from the backend rules.
         BigDecimal shipping = shippingCalculator.calculate(productsTotal, request.governorate());
         BigDecimal total = productsTotal.add(shipping);
 
-        // Deposit = 50% of the final total, rounded to 2 decimals.
-        BigDecimal deposit = total.multiply(new BigDecimal("0.5"))
-                .setScale(2, RoundingMode.HALF_UP);
+        // ⚡ التعديل هنا: تقريب الديبوزيت لأقرب 5 لأسفل بدون كسور ⚡
+        double rawHalf = total.doubleValue() * 0.5;
+        double roundedDeposit = Math.floor(rawHalf / 5.0) * 5.0;
+        BigDecimal deposit = BigDecimal.valueOf(roundedDeposit);
 
         order.setShippingFee(shipping);
         order.setTotalAmount(total);
         order.setDepositAmount(deposit);
         order.setOrderNumber(generateOrderNumber());
 
-        // Customer details.
         CustomerInfo info = new CustomerInfo(
                 request.fullName(),
                 request.phone(),
@@ -119,18 +116,11 @@ public class OrderService {
 
         OrderStatus previousStatus = order.getStatus();
 
-        System.out.println(">>> Updating Order #" + id + " from " + previousStatus + " to " + newStatus);
-
-        // 1. الخصم وتحديث الـ Stock فوراً في الداتابيز عند التحويل لـ CONFIRMED لأول مرة
         if (newStatus == OrderStatus.CONFIRMED && previousStatus != OrderStatus.CONFIRMED) {
-            System.out.println(">>> Entering Stock Deduction Logic...");
-
             for (OrderItem item : order.getItems()) {
                 Product product = item.getProduct();
                 int currentStock = product.getStockQuantity();
                 int requestedQuantity = item.getQuantity();
-
-                System.out.println(">>> Product: " + product.getName() + " | Current Stock: " + currentStock + " | Deducting: " + requestedQuantity);
 
                 if (currentStock < requestedQuantity) {
                     throw new IllegalArgumentException("Insufficient stock for product: " + product.getName());
@@ -138,8 +128,6 @@ public class OrderService {
 
                 product.setStockQuantity(currentStock - requestedQuantity);
                 productRepository.saveAndFlush(product);
-
-                System.out.println(">>> New Stock Saved: " + product.getStockQuantity());
             }
 
             if (order.getConfirmedAt() == null) {
@@ -152,7 +140,6 @@ public class OrderService {
         return AdminOrderDto.from(updatedOrder);
     }
 
-    // Generate a number like LUM-202600001 (year + zero-padded sequence).
     private String generateOrderNumber() {
         long next = orderRepository.count() + 1;
         return String.format("LUM-%d%05d", Year.now().getValue(), next);
